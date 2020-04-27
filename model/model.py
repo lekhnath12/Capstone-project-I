@@ -10,7 +10,7 @@ import tensorflow as tf
 from tensorflow.keras import layers
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 
-batch_size = 1024
+batch_size = 256
 data_folder = "/data/traffic_violation"
 df = pd.read_csv(os.path.join(data_folder, "Traffic_Violations.csv"),
                  usecols=['Description', 'Violation Type'])
@@ -54,11 +54,9 @@ train_df, test_df, val_df = train_test_val_split(df)
 #Xtrain, ytrain, Xtest, ytest, Xval, yval = train_test_val_split(input_arr, label)   
 
 model = tf.keras.Sequential()
-model.add(layers.Bidirectional(layers.LSTM(16, return_sequences=True), 
+model.add(layers.Bidirectional(layers.LSTM(32, return_sequences=True), 
                                input_shape=(len(unique_characters), max_len_text)))
-model.add(layers.Activation('tanh'))
-model.add(layers.Bidirectional(layers.LSTM(8)))
-model.add(layers.Activation('tanh'))
+model.add(layers.Bidirectional(layers.LSTM(16)))
 model.add(layers.Dense(8))
 model.add(layers.Activation('softmax'))
 model.summary()
@@ -93,13 +91,12 @@ def vectorize_txt(df_text):
         
 
 def gen(df=train_df, batch_size=batch_size):
-    start = 0
-    while start < len(df):
-        df_tmp = df[start: start + batch_size].reset_index(drop=True)
+    while True:
+        df_tmp = df.sample(batch_size).reset_index(drop=True)
         vector = vectorize_txt(df_tmp['Description'])
         label = df_tmp["Violation Type"].map(lambda x: label_map[x]).values
         yield vector, label
-        start += batch_size
+        
                 
 validation_generator = gen(val_df, batch_size=len(val_df))
 Xval, yval = next(validation_generator)
@@ -108,5 +105,5 @@ train_gen = gen()
 steps_per_epoch = int(np.ceil(len(train_df)/batch_size))
 
 model.fit_generator(train_gen, validation_data=(Xval, yval), validation_steps=batch_size, callbacks=[cp_callback],
-                    epochs=10, verbose=1, steps_per_epoch=steps_per_epoch, use_multiprocessing=False)
+                    epochs=100, verbose=1, steps_per_epoch=steps_per_epoch, use_multiprocessing=False)
 
